@@ -14,15 +14,15 @@ As it uses Mimesis, **it is required to use Python 3.6.X or higher.**
 
 2. Command help:
 
-- Required flags:
+   - Required flags:
 
 `python main.py --instance  random-data-tests --location europe-west2`
 
-- Full help:
+   - Full help:
 
 `python main.py --help`
 
-Output:
+   - Output:
 
 ```
 usage: main.py [-h] --instance INSTANCE --location LOCATION
