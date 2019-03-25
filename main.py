@@ -1,8 +1,14 @@
 import redis
 import argparse
 from google.cloud import redis_v1
-import os, sys
-from subprocess import call
+import os, sys, pprint
+from subprocess import check_output
+import  uuid
+from mimesis import Generic, locales
+
+# Placeholder env vars
+FROM_BYTES=1048576
+
 
 class MemorystoreClient():
     def __init__(self, hostname=None, port=6379, database=None):
@@ -10,13 +16,33 @@ class MemorystoreClient():
         self.port=port
         self.database=database
         if database is None:
-            self.instance=redis.Redis(host=self.hostname, port=self.port)
+            self.r=redis.Redis(host=self.hostname, port=self.port)
         else:
-            self.instance=redis.Redis(host=self.hostname, port=self.port, db=self.database)
-    
-    def Client():
-       pass 
+            self.r=redis.Redis(host=self.hostname, port=self.port, db=self.database)
+
+    def instanceSize(self):
+        return self.r.info()['used_memory']
+
+    def info(self):
+        return self.r.info()
+
+    def set(self, key, value):
+        self.r.set(key, value)
+
+    def get(self, key):
+        return self.r.get(key)
+
+    def mset(self, mapping):
+        self.r.mset(mapping)
+
+    def mget (self):
+        pass
+
+    def lpush(self, name, values):
+        self.r.lpush(name, values)
         
+    def lrange(self, name, start, end):
+        return self.r.lrange(name, start, end)
 
 class GenerateRandomData(object):
     
@@ -25,38 +51,88 @@ class GenerateRandomData(object):
         pass
 
     @classmethod
-    def generate(cls):
+    def generate(cls, client, size):
         pass
 
     @classmethod
-    def checkInstanceSize(cls):
-        pass
+    def checkInstanceSize(cls, redis_client):
+        info = redis_client.r.info()
+        return info["used_memory"]
+
+
+class TestGenerator(object):
+
+    @classmethod
+    def test(cls, redis_client, memorystore_client=None, size=None):
+        initial_size = redis_client.instanceSize()
+        g = Generic(locales.EN)
+        for i in range(int(size)):
+            key = str(uuid.uuid4())
+            value = g.person.name()
+            redis_client.lpush(key, value)
+            value = g.person.surname() 
+            redis_client.lpush(key, value)
+            value = g.address.address() 
+            redis_client.lpush(key, value)
+            value = g.science.dna_sequence()
+            redis_client.lpush(key, value)
+
+
+        final_size = redis_client.instanceSize()
+        end_size = final_size - initial_size
+        print(end_size)
+        print(end_size/FROM_BYTES)
+
+
 
 
 if __name__=='__main__':
     
     parser = argparse.ArgumentParser(description='Redis client to connect to Memorystore')
     
-    parser.add_argument('--instance', '-i', dest='instance', required=True,
+    parser.add_argument('--instance', '-i', 
+                        dest='instance', 
+                        required=True,
                         help='Memorystore instance ID, used to retrieve instance metadata. Overriden by hostname and port')
 
-    parser.add_argument('--location', '-l', dest='location', required=True,
+    parser.add_argument('--location', '-l', 
+                        dest='location', 
+                        required=True,
                         help='Memorystore instance location region. I.e. europe-west2')
 
-    parser.add_argument('--project', dest='project', required=False, default=call('gcloud config get-value project', shell=True),
+    parser.add_argument('--project',
+                        dest='project', 
+                        required=False, 
+                        default=check_output('gcloud config get-value project', shell=True)[:-1].decode('utf-8'),
                         help='Memorystore instance project location. Defaults to the one in the gcloud environment')
 
-    parser.add_argument('--host', '--hostname', dest='hostname', required=False,
+    parser.add_argument('--host', '--hostname', 
+                        dest='hostname', 
+                        required=False,
                         help='Hostname: IP address of the Memorystore instance')
     
-    parser.add_argument('--port', '-p', dest='port', required=False, default=6379,
+    parser.add_argument('--port', '-p', 
+                        dest='port', 
+                        required=False, 
+                        default=6379,
                         help='Port of the Memorystore instance.')
 
-    parser.add_argument('--generate-data', required=False, dest='generate-data-size',
-                        help='Generate fake data in the Memorystore instance. Requires the value of the size of the data generated')
+    parser.add_argument('--generate-data', 
+                        required=False, 
+                        dest='generate',
+                        help='''Generate fake data in the Memorystore instance. Requires the value of the size of the data generated.
+                             Data format should be in SI format: 10M, 20G, 30T. (See https://physics.nist.gov/cuu/Units/binary.html)''')
 
-    parser.add_argument('--database', '-db', dest='db', required=True, 
+    parser.add_argument('--database', '-db', 
+                        dest='db', 
+                        required=False, 
                         help='Database to connect the Redis client to')
+
+
+    parser.add_argument('--info',
+                        action='store_true',
+                        required=False, 
+                        help='Show Memorystore database Redis info')
 
     args = parser.parse_args()
 
@@ -66,16 +142,39 @@ if __name__=='__main__':
         except Exception as e:
             print(str(e))
             sys.exit(0)
-        
+
         name = 'projects/{}/locations/{}/instances/{}'.format(args.project, args.location, args.instance)
-        instance = memorystore_client.get_instance(name=args.instance)
+        instance = memorystore_client.get_instance(name=name)
         hostname = instance.host
         port = instance.port
 
     else:
         hostname = args.hostname
         port = args.port
-        db=args.db
-    print(args.project)
-    print(hostname)
-    client = MemorystoreClient(hostname=hostname, port=port, database=db)
+    
+    try:
+        db = args.db
+    except:
+        db = 0
+
+
+    redis_client = MemorystoreClient(hostname=hostname, port=port, database=db)
+
+    generate_data_ext = tuple(["M", "G", "T"])
+
+    if args.generate:
+        assert args.generate.endswith(generate_data_ext), "Please check the data to generate format here: https://physics.nist.gov/cuu/Units/binary.html"
+        #GenerateRandomData.generate(client, args.generate[:-1])
+        if not args.hostname:
+            TestGenerator.test(redis_client=redis_client, memorystore_client=memorystore_client, size=args.generate[:-1])
+
+        else:
+            TestGenerator.test(redis_client, size=args.generate[:-1])
+
+
+    if args.info:
+        instance_info = redis_client.info()
+        pprint.pprint(instance_info)
+
+
+

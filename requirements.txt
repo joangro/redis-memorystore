@@ -1,2 +1,5 @@
 redis
 google-cloud-redis
+google-auth
+pprint
+mimesis
