@@ -10,7 +10,7 @@ As it uses Mimesis, **it is required to use Python 3.6.X or higher.**
 
 1. Install dependencies:
 
-`pip install -r requirements.txt`
+   `pip install -r requirements.txt`
 
 2. Command help:
 
