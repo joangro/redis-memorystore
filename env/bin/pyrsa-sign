@@ -1,4 +1,4 @@
-#!/home/grauj/redis/env/bin/python2
+#!/home/grauj/redis-memorystore/env/bin/python3.7
 # -*- coding: utf-8 -*-
 import re
 import sys

@@ -1,4 +1,4 @@
-#!/home/grauj/redis/env/bin/python
+#!/home/grauj/redis-memorystore/env/bin/python
 
 import sys
 import getopt
