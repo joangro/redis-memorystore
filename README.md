@@ -22,7 +22,7 @@ As it uses Mimesis, **it is required to use Python 3.6.X or higher.**
 
      `python main.py --help`
 
-   - Output:
+     Output:
 
      ```
       usage: main.py [-h] --instance INSTANCE --location LOCATION
