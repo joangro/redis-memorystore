@@ -16,7 +16,11 @@ As it uses Mimesis, **it is required to use Python 3.6.X or higher.**
 
    - Required flags:
 
-     `python main.py --instance  random-data-tests --location europe-west2`
+     `python main.py --instance  <MEMORYSTORE-INSTANCE-ID> --location <INSTANCE-LOCATION>`
+
+   - Get instance info:
+
+     `python main.py --instance  <MEMORYSTORE-INSTANCE-ID> --location <INSTANCE-LOCATION> --info`
 
    - Full help:
 
