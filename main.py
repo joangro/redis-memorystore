@@ -7,8 +7,8 @@ from subprocess   import check_output
 from mimesis      import Generic, locales
 
 # Placeholder env vars
-FROM_BYTES=1048576
-
+FROM_BYTES=104857
+BASE_SIZE=250
 
 class MemorystoreClient():
     def __init__(self, hostname=None, port=6379, database=None):
@@ -54,7 +54,6 @@ class GenerateRandomData(object):
     @classmethod
     def generate(cls, client, size):
         pass
-
     @classmethod
     def checkInstanceSize(cls, redis_client):
         info = redis_client.r.info()
@@ -80,7 +79,19 @@ class TestGenerator(object):
 
         final_size = redis_client.instanceSize()
         end_size = final_size - initial_size
+        print(end_size)
         return end_size
+
+    @classmethod
+    def size_to_byte(cls, size):
+        pass
+
+def parseSize(size, data_ext=tuple(["M", "G", "T"])):
+    arg_in = size[-1]
+    pwr = data_ext.index(arg_in)
+    to_bytes = int(size[:-1])*(1024**(2 + pwr))
+    number_of_iterations = int(to_bytes/BASE_SIZE)
+    return number_of_iterations
 
 
 if __name__=='__main__':
@@ -135,6 +146,12 @@ if __name__=='__main__':
                         required=False, 
                         help='Perform tests.')
 
+
+    parser.add_argument('--load',
+                        dest='load',
+                        required=False, 
+                        help='Perform load test.')
+
     args = parser.parse_args()
 
     if not args.hostname:
@@ -163,19 +180,19 @@ if __name__=='__main__':
 
     generate_data_ext = tuple(["M", "G", "T"])
 
-    if args.generate:
+    if args.generate and not args.load:
         assert args.generate.endswith(generate_data_ext), "Please check the data to generate format here: https://physics.nist.gov/cuu/Units/binary.html"
         if not args.hostname:
             if args.test:
                 average = 0
-                N_ITER = 100
+                N_ITER = 1000
                 for i in range(N_ITER):
-                    size = TestGenerator.test(redis_client=redis_client, memorystore_client=memorystore_client, size=args.generate[:-1])
+                    size = TestGenerator.test(redis_client=redis_client, memorystore_client=memorystore_client, size=1)
                     average += size
                 print(average/N_ITER)
 
             else:
-                TestGenerator.test(redis_client=redis_client, memorystore_client=memorystore_client, size=args.generate[:-1])
+                TestGenerator.test(redis_client=redis_client, memorystore_client=memorystore_client, size=parseSize(args.generate))
 
         else:
             TestGenerator.test(redis_client, size=args.generate[:-1])
@@ -185,6 +202,16 @@ if __name__=='__main__':
         instance_info = redis_client.info()
         pprint.pprint(instance_info)
 
-
-
+    if args.load:
+        if not args.generate:
+            raise Exception('missing --generate argument')
+        #pool_arguments = [(redis_client, memorystore_client, 100000, ) for i in range(int(args.load))]
+        iterations = parseSize(args.generate)
+        print(iterations)
+        from multiprocessing import Process
+        for worker in range(int(args.load)):
+            print("Started worker " + str(worker))
+            p = Process(target=TestGenerator.test, args=(redis_client, memorystore_client, iterations))
+            p.start()
+            #p.join()
 
